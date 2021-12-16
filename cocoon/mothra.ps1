@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
-	Stages, installs, and updates Symantec DLP Software in a configured environment
+	Installs Symantec DLP Software in a networked Windows environment
 .DESCRIPTION
-	This script will stage, install, and update Symantec DLP Software in a configured production environment
+	This script will install Symantec DLP Software in a configured production environment
 .EXAMPLE
 	PS> ./mothra
 .NOTES
@@ -32,94 +32,22 @@ Function Get-TimeStamp {
     Return "[{0:MM/dd/yy} {0:HH:mm:ss}]" -f (Get-Date)   
 }
 
-
-## Used to find the config directory of Symantec DLP
-## Returns string with config path of Symantec DLP
-Function getInstallPath {
-
-    # Get all drives found in OS. Contains a lot of entries that are not conventional disks
-    $Drives = Get-PSDrive
-    Foreach ($DriveLetter in $Drives) {
-
-        # Only check for config directory for single drive letters (ex. C, A, D)
-        If ($DriveLetter -match "^[A-Z]$") {
-
-            $Drive = "$($DriveLetter):\"    
-            # Only check drives that actually have contents. This will exclude drives that are mounted but nothing is there like DVD drives with no disk
-            If (Test-Path $Drive) {
-
-                # Look for normal default install path of recent versions
-                If (Test-Path "$Drive\Program Files\Symantec\DataLossPrevention\EnforceServer\15.5\Protect\config") {
-
-                    $ConfigPath = "$($Drive)Program Files\Symantec\DataLossPrevention\EnforceServer\15.5\Protect\config"
-                    If (Test-Path $ConfigPath) {
-                        Write-Host "Config directory for Symantec DLP found under $ConfigPath"
-                        Return $ConfigPath
-                    }
-                    Else { Write-Host "Install directory not found on $Drive" }
-                }
-                # Look for normal default install path of older versions
-                Elseif (Test-Path "$Drive\SymantecDLP") {
-
-                    $ConfigPath = "$($Drive)SymantecDLP\Protect\config"
-                    If (Test-Path $ConfigPath) {
-                        Write-Host "Config directory for Symantec DLP found under $ConfigPath"
-                        Return $ConfigPath
-                    }
-                    Else { Write-Host "Install directory not found on $Drive" }
-                }
-                Else { Write-Host "Install directory not found on $Drive" }            
-            }
-
-        }
-    }
-    # Catch all statement and return value of null
-    Write-Host "Install directory was not found in the default install directories. Please rerun the script with the -DLPConfig parameter specified."
-    Return $null
-}
-
-Function getOracleConnectionString ([String]$ConfigDir) {
-
-	$PropertiesFile = "$($ConfigDir)\jdbc.properties"
-	$jdbcline = Get-Content $PropertiesFile | Where-Object {$_ -Like "jdbc.dbalias.oracle-thin*" }
-	$linearray = $jdbcline.split('@')
-	return $linearray[1]
-}
-
-### End Functions ###
-
 ### Start Main Script ###
+Clear-Host
+Write-Host " __    __     ______     ______   __  __     ______     ______" -ForegroundColor Green
+Write-Host "/\ `"-./  \   /\  __ \   /\__  _\ /\ \_\ \   /\  == \   /\  __ \" -ForegroundColor Green
+Write-Host "\ \ \-./\ \  \ \ \/\ \  \/_/\ \/ \ \  __ \  \ \  __<   \ \  __ \" -ForegroundColor Green
+Write-Host " \ \_\ \ \_\  \ \_____\    \ \_\  \ \_\ \_\  \ \_\ \_\  \ \_\ \_\" -ForegroundColor Green
+Write-Host "  \/_/  \/_/   \/_____/     \/_/   \/_/\/_/   \/_/ /_/   \/_/\/_/" -ForegroundColor Green
+Write-Host "-----------------------------------------------------------------" -ForegroundColor Green
+Write-Host "PS Script to install SymantecDLP in a networked Windows Environment"
+Write-Host "-----------------------------------------------------------------" -ForegroundColor Green
 
 #Checking for InteliStaging.log
 Test-Path -path $Logfile
 if ($Logfile){
 Remove-Item $Logfile -erroraction SilentlyContinue
 }
-
-$InstallDir = getInstallPath
-$tnsalias = getOracleConnectionString $InstallDir
-
-$OraclePassword = Read-Host 'Input protect user password' -AsSecureString
-
-$PasswordPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($OraclePassword)
-$PlainTextPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto($PasswordPointer)
-[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($PasswordPointer)
-
-$sqlQuery = @'
-    spool "c:\DetectionServerList.csv"
-	select host from informationmonitor where isdeleted='0';
-	spool off;
-'@
-
-$sqlQuery | sqlplus -silent protect/$PlainTextPassword@$tnsalias
-### End Main Script ###
-
-### Entering Editing File Stage###
-""
-Write-host "Please review DetectionServerList.csv is present and formatted correctly before moving on."
-""
-#Pausing script and awaiting "Enter" key
-Read-Host -Prompt "Press Enter to continue"
 
 #Loading data from CSV file
 #formatting csv file
@@ -132,63 +60,63 @@ ForEach($line in (Get-Content "C:\DetectionServerList.csv")){
 
 }
 
-#Using existing array that is loaded into PowerShell
-foreach ($computer in $computers) {
-    $i = 0
-#Report if UNC is enabled
-    If (Test-Path "\\$computer\c$") { LogWrite "UNC is enabled on $computer" }
-#Reporting if UNC is disbled
-    Else { LogWrite "UNC is disabled on $computer" }
-$i++
-Write-Progress -activity "Testing hosts for UNC . . ." -status "Tested: $i of $($computers.Count)" -percentComplete (($i / $computers.Count)  * 100)
-}
+Write-Host "For SymantecDLP installation we assume FIPS being disabled, and Existing Service User." -ForegroundColor Red -BackgroundColor Yellow
+Write-Host "If this is not the case then manually install SymantecDLP." -ForegroundColor Red -BackgroundColor Yellow
+Read-Host -Prompt "Press Enter to continue" -ForegroundColor Red -BackgroundColor Yellow
 
-#Using existing array that is loaded into PowerShell
-foreach ($computer in $computers) {
-    $i = 0
-#Checking for staging folder on the detection servers
-    If (Test-Path "\\$computer\c$\DLPStaging") { LogWrite "The directory exists on $computer" }
-    Else { LogWrite "The directory does not exist $computer" }
-    $i++
-    Write-Progress -activity "Checking hosts for staging folder . . ." -status "Checked: $i of $($computers.Count)" -percentComplete (($i / $computers.Count)  * 100)
-}
-""
-#Pausing script and awaiting "Enter" key
-LogWrite "Review the InteliStaging.log for more details."
-""
-Read-Host -Prompt "Press Enter to continue - Proceed is $Proceed"
+### Prompt for installation variables
+Write-Host "Input the SymantecDLP Install Directory:" -ForegroundColor Green
+$installDir = Read-Host
+Write-Host "Input the SymantecDLP JRE Directory to use:" -ForegroundColor Green
+$javaDir = Read-Host
+Write-Host "Input the SymantecDLP Data Directory to use:" -ForegroundColor Green
+$dataDir = Read-Host
+Write-Host "Input the existing Service User name to use:" -ForegroundColor Green
+$svcUsername = Read-Host
+Write-Host "Input the existing Service User password to use:" -ForegroundColor Green
+$svcPassword = Read-host -AsSecureString
+$svcPW = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($svcPassword))
 
-### Copying files to the detection servers###
-#LogWrite "Copying the DLP installation files to the detection servers.`n"
-foreach ($computer in $computers) {
-    if($Proceed){
-        LogWrite "Copying files to \\$computer\c$\"
-        Copy-Item C:\DLPStaging -Destination \\$computer\c$\  -Recurse
-        LogWrite "Copying DLP installation files to $computer is now complete." `n
-    }
-    else{
-        #Test-Path -path C:\DLPStaging
-        #LogWrite "The DLPStaging folder does not exist on $computer"
-        Copy-Item C:\DLPStaging -Destination \\$computer\c$\  -Recurse -WhatIf -ErrorAction SilentlyContinue
-        LogWrite "No installation files were copied to detection servers."
-    }
+### Log installation values for troubleshooting
+LogWrite "Using $installDir as SymantecDLP Install directory"
+LogWrite "Using $javaDir as SymantecDLP JRE directory"
+LogWrite "Using $dataDir as SymantecDLP Data directory"
+LogWrite "Using $svcUsername as SymantecDLP Service Username"
+
+Write-Host "We will now open a File Browser. Select the MSI file to be installed." -ForegroundColor Green
+Read-Host -prompt "Press Enter to continue"
+
+### Open dialog box to select appropriate MSI/MSP installer
+Add-Type -AssemblyName System.Windows.Forms
+$FileBrowser = New-Object System.Windows.Forms.OpenFileDialog -Property @{
+    Multiselect = $false #Cannot select multiple files
+	Filter = 'MSI (*.MSI, *.MSP)|*.msi;*.msp' # Specified file types
 }
+[void]$FileBrowser.ShowDialog()
+
+$installer = Get-ChildItem $FileBrowser.FileName
 
 ### Installing Symantec DLP MSI from staging folder
-foreach ($computer in $computers) {
-    Invoke-Command -ComputerName $computer -ScriptBlock { 
-        Start-Process c:\windows\temp\installer.exe -ArgumentList '/silent' -Wait
-    }   
-}
-
 $DataStamp = get-date -Format yyyyMMddTHHmmss
-$installLog = '{0}-{1}.log' -f $file.fullname,$DataStamp
+$installLog = '{0}-{1}.log' -f $installer.Name,$DataStamp
 $MSIArguments = @(
     "/i"
-    ('"{0}"' -f $file.fullname)
+    ('"{0}"' -f $installer.Name)
     "/qn"
     "/norestart"
+    "INSTALLATION_DIRECTORY=$installDir"
+    "DATA_DIRECTORY=$dataDir"
+    "JRE_DIRECTORY=$javaDir"
+    "FIPS_OPTION=Disabled"
+    "SERVICE_USER_OPTION=ExistingUser"
+    "SERVICE_USER_USERNAME=$svcUsername"
+    "SERVICE_USER_PASSWORD=$svcPW"
     "/L*v"
     $installLog
 )
-Start-Process "msiexec.exe" -ArgumentList $MSIArguments -Wait -NoNewWindow 
+
+foreach ($computer in $computers) {
+    Invoke-Command -ComputerName $computer -ScriptBlock { 
+        Start-Process "msiexec.exe" -ArgumentList $MSIArguments -Wait -NoNewWindow 
+    }   
+}
