@@ -30,7 +30,7 @@
 
 #
 
-#Version: v1.6
+#Version: v1.7
 
 #Requirements:
 #UNC path
