@@ -163,18 +163,24 @@ ForEach($line in (Get-Content "C:\DetectionServerList.csv")){
 }
 
 #Using existing array that is loaded into PowerShell
+$i = 0
 foreach ($computer in $computers) {
 #Report if UNC is enabled
     If (Test-Path "\\$computer\c$") { LogWrite "UNC is enabled on $computer" }
 #Reporting if UNC is disbled
     Else { LogWrite "UNC is disabled on $computer" }
+    $i++
+    Write-Progress -activity "Testing hosts for UNC . . ." -status "Tested: $i of $($computers.Count)" -percentComplete (($i / $computers.Count)  * 100)
 }
 
 #Using existing array that is loaded into PowerShell
+$i = 0
 foreach ($computer in $computers) {
 #Checking for staging folder on the detection servers
     If (Test-Path "\\$computer\c$\DLPStaging") { LogWrite "The directory exists on $computer" }
     Else { LogWrite "The directory does not exist $computer" }
+    $i++
+    Write-Progress -activity "Testing hosts for staging folder . . ." -status "Tested: $i of $($computers.Count)" -percentComplete (($i / $computers.Count)  * 100)
 }
 ""
 #Pausing script and awaiting "Enter" key
@@ -184,6 +190,7 @@ Read-Host -Prompt "Press Enter to continue - Proceed is $Proceed"
 
 ### Copying files to the detection servers###
 #LogWrite "Copying the DLP installation files to the detection servers.`n"
+$i = 0
 foreach ($computer in $computers) {
     if($Proceed){
         LogWrite "Copying files to \\$computer\c$\"
@@ -196,4 +203,6 @@ foreach ($computer in $computers) {
         Copy-Item C:\DLPStaging -Destination \\$computer\c$\  -Recurse -WhatIf -ErrorAction SilentlyContinue
         LogWrite "No installation files were copied to detection servers."
     }
+    $i++
+    Write-Progress -activity "Copying DLP installation files to hosts. . ." -status "Staged: $i of $($computers.Count)" -percentComplete (($i / $computers.Count)  * 100)
 }

@@ -6,7 +6,8 @@
 .EXAMPLE
 	PS> ./mothra
 .NOTES
-	Author: Michael Tiebout, Daniel Stuetz, Shawn Cook
+	Author: Shawn Cook
+    InteliStaging Authors: Michael Tiebout, Daniel Stuetz
 .LINK
 	https://github.com/fa7alis/mothra
 #>
@@ -138,8 +139,8 @@ foreach ($computer in $computers) {
     If (Test-Path "\\$computer\c$") { LogWrite "UNC is enabled on $computer" }
 #Reporting if UNC is disbled
     Else { LogWrite "UNC is disabled on $computer" }
-    $i++
-    Write-Progress -activity "Testing hosts for UNC . . ." -status "Tested: $i of $($computers.Count)" -percentComplete (($i / $computers.Count)  * 100)
+$i++
+Write-Progress -activity "Testing hosts for UNC . . ." -status "Tested: $i of $($computers.Count)" -percentComplete (($i / $computers.Count)  * 100)
 }
 
 #Using existing array that is loaded into PowerShell
