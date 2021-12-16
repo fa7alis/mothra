@@ -173,3 +173,22 @@ foreach ($computer in $computers) {
         LogWrite "No installation files were copied to detection servers."
     }
 }
+
+### Installing Symantec DLP MSI from staging folder
+foreach ($computer in $computers) {
+    Invoke-Command -ComputerName $computer -ScriptBlock { 
+        Start-Process c:\windows\temp\installer.exe -ArgumentList '/silent' -Wait
+    }   
+}
+
+$DataStamp = get-date -Format yyyyMMddTHHmmss
+$installLog = '{0}-{1}.log' -f $file.fullname,$DataStamp
+$MSIArguments = @(
+    "/i"
+    ('"{0}"' -f $file.fullname)
+    "/qn"
+    "/norestart"
+    "/L*v"
+    $installLog
+)
+Start-Process "msiexec.exe" -ArgumentList $MSIArguments -Wait -NoNewWindow 
